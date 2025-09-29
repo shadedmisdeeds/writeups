@@ -1,0 +1,92 @@
+[Sequence](https://tryhackme.com/room/sequence) is a machine medium difficulty machine that focuses on chaining multiple vulnerabilities to break into a machine. The machine's description gave us the following:
+
+```
+Robert made some last-minute updates to the review.thm website before heading off on vacation. 
+He claims that the secret information of the financiers is fully protected. But are his defenses truly airtight? 
+Your challenge is to exploit the vulnerabilities and gain complete control of the system.
+```
+
+Doing a quick Nmap scan running `nmap -A -T4 -v review.thm` gives us:
+
+```
+Nmap scan report for review.thm (10.10.125.29)
+Host is up (0.00041s latency).
+Not shown: 998 closed ports
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    Apache httpd 2.4.41 ((Ubuntu))
+| http-cookie-flags: 
+|   /: 
+|     PHPSESSID: 
+|_      httponly flag not set
+| http-methods: 
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-server-header: Apache/2.4.41 (Ubuntu)
+|_http-title: Review Shop
+```
+
+Heading on over to the website reveals a potential shop which is apparently login only(?) 
+
+![](./images/img1.png)
+
+The contact page may or may not be susceptible to XSS. Let's send a cookie stealer just in case.
+
+We'll come back here in a bit. For now, let's do some subdirectory enumeration. I will be using gobuster for this machine.
+
+`gobuster dir -u http://review.thm/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-small.txt `
+
+We get some potential results:
+
+```
+===============================================================
+Starting gobuster in directory enumeration mode
+===============================================================
+/uploads              (Status: 301) [Size: 310] [--> http://review.thm/uploads/]
+/mail                 (Status: 301) [Size: 307] [--> http://review.thm/mail/]
+/javascript           (Status: 301) [Size: 313] [--> http://review.thm/javascript/]
+/phpmyadmin           (Status: 301) [Size: 313] [--> http://review.thm/phpmyadmin/]
+Progress: 87664 / 87665 (100.00%)
+===============================================================
+Finished
+===============================================================
+
+```
+
+
+Looking into each directory, I find that 
+ * `/uploads` is empty.
+ * `/mail` has a file called `dump.txt` which contains the following:
+ ```
+ From: software@review.thm
+To: product@review.thm
+Subject: Update on Code and Feature Deployment
+
+Hi Team,
+
+I have successfully updated the code. The Lottery and Finance panels have also been created.
+
+Both features have been placed in a controlled environment to prevent unauthorized access. The Finance panel (`/finance.php`) is hosted on the internal 192.x network, and the Lottery panel (`/lottery.php`) resides on the same segment.
+
+For now, access is protected with a completed 8-character alphanumeric password (S60u}f5j), in order to restrict exposure and safeguard details regarding our potential investors.
+
+I will be away on holiday but will be back soon.
+
+Regards,  
+Robert
+ ```
+ * `/javascript` returns `403 forbidden`.
+ * `/phpmyadmin` is on v4.9.5.
+ 
+Seeing the two PHP files, I decided to restart my gobuster scan with an additional `-x php` parameter, which returned two PHP files: `db.php` and `chat.php`. 
+
+`chat.php` simply redirects us to the login page and `db.php` returns a blank page.
+
+Speaking of login page, our XSS psayload returned something.
+
+![](./images/img2.png)
+
+Bingo.
+
+![](./images/img3.png)
+
+Our flag is on the top right.
