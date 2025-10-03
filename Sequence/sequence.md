@@ -166,7 +166,39 @@ Now, I've tried to upload multiple files here, and it kept telling me that each 
 
 It's possible that there is a filter, or the `/upload` referenced is a different one. But all of this is pure conjecture.
 
+Also, as a side note, `/phpmyadmin` denied us access even after changing the mods password.
+
 But wait, let's take a closer look:
 
 ![](./images/img11.png)
 
+That path is relative. What if we re-routed our POST request to our uploads, similar to how we re-routed our POST from `lottery.php` to `finance.php`?
+
+![](./images/img12.png) 
+
+Right. It took me an embarrassingly long amount of time to figure this out. Oh well.
+
+Let's upload a PHP shell and execute it this way
+
+![](./images/img13.png)
+
+(It really should not have taken me that long to figure out that this is a docker container ffs -_-)
+
+Some enumeration shows that there are two docker containers: `phpvulnerable` and `phpvulnerable-modified`. Another notable find is that the docker socket is mounted.
+
+because the docker socket is mounted, I should be able to escape the current container.
+
+after stabilizing the shell via python PTY, I was able to run the following command:
+
+```
+$ docker run -v /:/mnt -it phpvulnerable chroot /mnt sh
+$ whoami
+root
+$ cd /root
+$ ls
+ bin   flag.txt   lib   root   share   snap  '~'
+$ cat flag.txt
+<redacted>
+```
+
+I'll be honest here, this machine was a real head-spinner. the CSRF token was especially dirty. but I'll be damned if I said this wasn't a fun machine. Hopefully my next writeup will be based on a machine built upon a similar concept :)
