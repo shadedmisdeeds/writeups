@@ -30,6 +30,8 @@ I will then use TimelineExplorer to view the $MFT to look for anything interesti
 
 ![](./images/img3.png)
 
+(quick note: this is a screenshot of Logfile_filename, not MTF. Just trust me when I say MTF had those same entries.)
+
 That answers Q2 and Q4. Now, let's check out the results of the $LogFile. 
 
 ![](./images/img4.png)
@@ -38,4 +40,25 @@ There are quite a few to say the least. but a quick search suggested that `ifusn
 
 ![](./images/img5.png)
 
-This is notable since the google chrome directory (stored in AppData) did not have ransom file extension (EeUfy). Though, I had no clue how I was 
+This is good, as that means we can find the origin of this file from a zone identifier ([thank you 0xdf](https://0xdf.gitlab.io/2024/04/17/htb-sherlock-bft.html)). It was also at this point that I had found out Exferro is able to mount `.ad1` images.
+
+I then returned to the $MTF file and searched for any reference to `HiddenFile.zip`. And sure enough:
+
+![](./images/img6.png)
+
+The second file in the search result contained a Referrer URL pointing to a Gofile URL, which answers Q1.
+
+Q2 asks which executable initiated the encryption process. My strategy was to follow whatever proceeds after the `pb.exe` executable. The only executable that came after (that wasn't a windows executable) was `HpAgent.exe`
+
+![](./images/img7.png)
+
+After which the README files began showing up. This is probably not how I was to supposed to deduce which executable began encrypting, but it lead me to the right file. So there's that I suppose.
+
+Q5 is probably the hardest question to answer. The question asks who is the group behind the attack. One possible lead would be the README file. Looking closer, we see a part of the tor hidden service link was not censored.
+
+![](./images/img8.png)
+
+Spending some time searching and dorking, I managed to find [this](https://tria.ge/250610-cs7dvaxtdy) site which has the same ransom message as the one presented on the THM page. We can access the hidden service (specifically the blog) in order to retrieve our final answer.
+
+This room was quite the entry when it comes to Digital forensics. 
+
